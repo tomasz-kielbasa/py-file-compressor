@@ -20,7 +20,7 @@ print('real_bits',real_bits)
 print('shannon entropy',-int(np.log2(pdf[range(0,symsNum),sym]).sum()))
 
 # Decode from bytestream.
-decodec = numpyAc.arithmeticDeCoding(None,symsNum,dim,'out.b')
+decodec = numpyAc.arithmeticDeCoding(None,dim,'out.b')
 
 # Autoregressive decoding and output will be equal to the input.
 for i,s in enumerate(sym):

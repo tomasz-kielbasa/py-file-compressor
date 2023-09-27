@@ -138,7 +138,6 @@ private:
 public:
     int dataID=0;
     const int Lp;// To calculate offset
-    const int N_sym;// To know the # of syms to decode. Is encoded in the stream!
     const int max_symbol;
     uint32_t low = 0;
     uint32_t high = 0xFFFFFFFFU;
@@ -147,71 +146,61 @@ public:
     cdf_t sym_i = 0;
     uint32_t value = 0;
     InCacheString in_cache;
-    decode(const std::string &in, const int&sysNum_,const int&sysNumDim_):in_cache(in),N_sym(sysNum_),Lp(sysNumDim_),max_symbol(sysNumDim_-2){
+    decode(const std::string &in, const int&sysNumDim_):in_cache(in),Lp(sysNumDim_),max_symbol(sysNumDim_-2){
         in_cache.initialize(value);
     
     };
     
     int16_t decodeAsym(py::list cdf) {
-
-
-        for (; dataID < N_sym; ++dataID) {
  
-            const uint64_t span = static_cast<uint64_t>(high) - static_cast<uint64_t>(low) + 1;
-            // always < 0x10000 ???
-            const uint16_t count = ((static_cast<uint64_t>(value) - static_cast<uint64_t>(low) + 1) * c_count - 1) / span;
+        const uint64_t span = static_cast<uint64_t>(high) - static_cast<uint64_t>(low) + 1;
+        // always < 0x10000 ???
+        const uint16_t count = ((static_cast<uint64_t>(value) - static_cast<uint64_t>(low) + 1) * c_count - 1) / span;
 
-            int offset = 0;
+        int offset = 0;
 
-            sym_i = binsearch(cdf, count, (cdf_t)max_symbol, offset);
+        sym_i = binsearch(cdf, count, (cdf_t)max_symbol, offset);
 
+        const uint32_t c_low = cdf[offset + sym_i].cast<cdf_t>();
+        const uint32_t c_high = sym_i == max_symbol ? 0x10000U : cdf[offset + sym_i + 1].cast<cdf_t>();
 
-            if (dataID == N_sym-1) {
-                break;
+        high = (low - 1) + ((span * static_cast<uint64_t>(c_high)) >> precision);
+        low =  (low)     + ((span * static_cast<uint64_t>(c_low))  >> precision);
+
+        while (true) {
+            if (low >= 0x80000000U || high < 0x80000000U) {
+                low <<= 1;
+                high <<= 1;
+                high |= 1;
+
+                in_cache.get(value);
+
+            } else if (low >= 0x40000000U && high < 0xC0000000U) {
+                /**
+                 * 0100 0000 ... <= value <  1100 0000 ...
+                 * <=>
+                 * 0100 0000 ... <= value <= 1011 1111 ...
+                 * <=>
+                 * value starts with 01 or 10.
+                 * 01 - 01 == 00  |  10 - 01 == 01
+                 * i.e., with shifts
+                 * 01A -> 0A  or  10A -> 1A, i.e., discard 2SB as it's all the same while we are in
+                 *    near convergence
+                 */
+                low <<= 1;
+                low &= 0x7FFFFFFFU;  // make MSB 0
+                high <<= 1;
+                high |= 0x80000001U;  // add 1 at the end, retain MSB = 1
+                value -= 0x40000000U;
+
+                in_cache.get(value);
+
+            } else {
+                break; 
             }
-
-
-            const uint32_t c_low = cdf[offset + sym_i].cast<cdf_t>();
-            const uint32_t c_high = sym_i == max_symbol ? 0x10000U : cdf[offset + sym_i + 1].cast<cdf_t>();
-
-            high = (low - 1) + ((span * static_cast<uint64_t>(c_high)) >> precision);
-            low =  (low)     + ((span * static_cast<uint64_t>(c_low))  >> precision);
-
-            while (true) {
-                if (low >= 0x80000000U || high < 0x80000000U) {
-                    low <<= 1;
-                    high <<= 1;
-                    high |= 1;
-                    
-                    in_cache.get(value);
-                
-                } else if (low >= 0x40000000U && high < 0xC0000000U) {
-                    /**
-                     * 0100 0000 ... <= value <  1100 0000 ...
-                     * <=>
-                     * 0100 0000 ... <= value <= 1011 1111 ...
-                     * <=>
-                     * value starts with 01 or 10.
-                     * 01 - 01 == 00  |  10 - 01 == 01
-                     * i.e., with shifts
-                     * 01A -> 0A  or  10A -> 1A, i.e., discard 2SB as it's all the same while we are in
-                     *    near convergence
-                     */
-                    low <<= 1;
-                    low &= 0x7FFFFFFFU;  // make MSB 0
-                    high <<= 1;
-                    high |= 0x80000001U;  // add 1 at the end, retain MSB = 1
-                    value -= 0x40000000U;
-                
-                    in_cache.get(value);
-      
-                } else {
-                    break; 
-                }
-            }
-   
-            return (int16_t)sym_i;
         }
+
+        return (int16_t)sym_i;
     }
 
 };
@@ -340,8 +329,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("encode_cdf", &encode_cdf, "Encode from CDF");
  
     py::class_<decode>(m, "decode")
-        .def(py::init([] (const std::string in, const int&sysNum_,const int&sysNumDim_) {
-            return new decode(in,sysNum_,sysNumDim_);
+        .def(py::init([] (const std::string in, const int&sysNumDim_) {
+            return new decode(in,sysNumDim_);
         }))
         .def("decodeAsym", &decode::decodeAsym);
 }

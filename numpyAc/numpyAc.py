@@ -1,7 +1,6 @@
 import os
 import torch
 import numpy as np
-from torch.autograd.grad_mode import F
 from torch.utils.cpp_extension import load
 
 
@@ -151,18 +150,16 @@ class arithmeticDeCoding():
   """
     Decoding class
     byte_stream: the bin file stream.
-    sysNum: the Number of symbols that you are going to decode. This value should be 
-            saved in other ways.
     sysDim: the Number of the possible symbols.
     binfile: bin file path, if it is Not None, 'byte_stream' will read from this file
             and copy to Cpp backend Class 'InCacheString'
   """
-  def __init__(self,byte_stream,sysNum,symDim,binfile=None) -> None:
+  def __init__(self,byte_stream,symDim,binfile=None) -> None:
       if binfile is not None:
         with open(binfile, 'rb') as fin:
           byte_stream = fin.read()  
       self.byte_stream = byte_stream
-      self.decoder = numpyAc_backend.decode(self.byte_stream,sysNum,symDim+1)
+      self.decoder = numpyAc_backend.decode(self.byte_stream,symDim+1)
 
   def decode(self,pdf):
     cdfF = pdf_convert_to_cdf_and_normalize(pdf)
