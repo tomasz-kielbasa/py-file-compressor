@@ -36,8 +36,9 @@ def encode(text):
 
     # We can't run a single pass over all tokens, because
     # we get inconsistent results then
-    for i in range(tokenized.shape[1]):
-        bar.progress((i + 1) / tokenized.shape[1])
+    length = tokenized.shape[1]
+    for i in range(length):
+        bar.progress((i + 1) + (i + 1) ** 2 / length)
         with torch.no_grad():
             output_ = model(
                 input_ids=tokenized[:, i:i + 1],
