@@ -8,17 +8,17 @@ import numpy as np
 import numpyAc
 
 st.set_page_config(layout="wide")
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 @st.cache_resource
 def load_model():
     return AutoModelForCausalLM.from_pretrained(
-        "codellama/CodeLlama-7b-Python-hf",
-        device_map='auto',
-    )
+        "PY007/TinyLlama-1.1B-python-v0.1",
+    ).to(device)
 
 @st.cache_resource
 def load_tokenizer():
-    return AutoTokenizer.from_pretrained("codellama/CodeLlama-7b-Python-hf")
+    return AutoTokenizer.from_pretrained("PY007/TinyLlama-1.1B-python-v0.1")
 
 model = load_model()
 tokenizer = load_tokenizer()
@@ -30,7 +30,7 @@ encode_col, decode_col = st.columns(2, gap='medium')
 def encode(text):
     bar = st.progress(0.0)
     codec = numpyAc.arithmeticCoding()
-    tokenized = tokenizer(text, return_tensors='pt').input_ids.to('cuda')
+    tokenized = tokenizer(text, return_tensors='pt').input_ids.to(device)
     output = list()
     past_key_values = None
 
@@ -49,7 +49,7 @@ def encode(text):
         output.append(logits)
     output = torch.cat(output, dim=0)
     output = F.softmax(output, dim=-1)
-    tokenized = torch.cat((tokenized.squeeze()[1:], torch.tensor([2], device='cuda'))) # Add EOS
+    tokenized = torch.cat((tokenized.squeeze()[1:], torch.tensor([2], device=device))) # Add EOS
     tokenized = tokenized.type(torch.int16).cpu().numpy()
     byte_stream, _ = codec.encode(output.cpu(), tokenized)
     return byte_stream
@@ -64,7 +64,7 @@ def decode(byte_stream):
     while input_ids[-1] != 2:
         with torch.no_grad():
             output = model(
-                input_ids=torch.tensor([input_ids[-1:]], device='cuda'),
+                input_ids=torch.tensor([input_ids[-1:]], device=device),
                 use_cache=True,
                 past_key_values=past_key_values
             )
