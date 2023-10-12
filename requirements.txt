@@ -1,0 +1,6 @@
+transformers >= 4.33.1
+tokenizers>=0.13.3
+torch
+streamlit
+ninja
+protobuf==3.20
