@@ -28,12 +28,16 @@ encode_col, decode_col = st.columns(2, gap='medium')
 
 @st.cache_data
 def encode(text):
+    bar = st.progress(0.0)
     codec = numpyAc.arithmeticCoding()
     tokenized = tokenizer(text, return_tensors='pt').input_ids.to('cuda')
     output = list()
     past_key_values = None
 
+    # We can't run a single pass over all tokens, because
+    # we get inconsistent results then
     for i in range(tokenized.shape[1]):
+        bar.progress((i + 1) / tokenized.shape[1])
         with torch.no_grad():
             output_ = model(
                 input_ids=tokenized[:, i:i + 1],
@@ -52,6 +56,7 @@ def encode(text):
 
 @st.cache_data
 def decode(byte_stream):
+    # Unfortunately progressbar for decoding isn't possible/is hard
     decodec = numpyAc.arithmeticDeCoding(byte_stream, 32_000)
     input_ids = [1]
     past_key_values = None
