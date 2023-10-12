@@ -38,7 +38,7 @@ def encode(text):
     # we get inconsistent results then
     length = tokenized.shape[1]
     for i in range(length):
-        bar.progress((i + 1) + (i + 1) ** 2 / length)
+        bar.progress(min(((i + 1) + (i + 1) ** 2 / 1000) / (length + length ** 2 // 1000), 1.0))
         with torch.no_grad():
             output_ = model(
                 input_ids=tokenized[:, i:i + 1],
